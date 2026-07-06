@@ -1,0 +1,32 @@
+{
+  "name": "@pokerai/client",
+  "version": "0.1.0",
+  "description": "Official TypeScript/JavaScript client for the Pokerai API — solver-grade GTO strategy for 6-max No-Limit Hold'em. Fully typed, auto-generated from the OpenAPI spec.",
+  "keywords": ["poker", "gto", "solver", "holdem", "nlhe", "api", "pokerai", "openapi"],
+  "homepage": "https://pokerai.bet",
+  "bugs": { "url": "https://pokerai.bet/docs.en" },
+  "license": "MIT",
+  "author": "Pokerai API",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }
+  },
+  "files": ["dist", "README.md"],
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "gen": "openapi-typescript openapi.yaml -o src/schema.ts",
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.17.0"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.13.0",
+    "typescript": "^5.5.0",
+    "@types/node": "^20.0.0"
+  },
+  "publishConfig": { "access": "public" }
+}

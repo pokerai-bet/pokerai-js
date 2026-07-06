@@ -1,0 +1,802 @@
+openapi: 3.0.3
+info:
+  title: Poker GTO API
+  version: "1.0"
+  description: >
+    GTO strategy API for preflop / flop / turn / river. Returns each action's mixed
+    frequency (no recommended action — you choose by frequency). Preflop and flop tap a
+    library of presolved GTO solutions, served instantly (millisecond). The solver endpoint
+    computes in real time (flop ~70s, turn/river faster). Card/board inputs use a no-separator
+    string ("2c2h2s", "AdKd"); board is returned as an array (["2c","2h","2s"]).
+    Range strings are comma-separated `hand:weight` (class notation AA/AKs/AKo;
+    weight 0..1, default 1).
+
+
+    ⚠ Note: the "Test Request" button below sends a real request with your key and consumes your real monthly quota. New here? Read the guide first: https://pokerai.bet/docs
+servers:
+  - url: https://pokerai.bet
+security:
+  - BearerApiKey: []
+  - XApiKey: []
+tags:
+  - name: Lookup
+    description: Presolved GTO solutions, served instantly (millisecond) — preflop + the full flop decision tree. Charges 1 presolved quota each.
+  - name: Solver
+    description: Real-time solver (flop ~70s, turn/river faster). schedule -> tree -> node.
+  - name: Range
+    description: Update ranges along an action line (range conversion / flop projected range).
+
+paths:
+  /v1/gto/preflop:
+    post:
+      tags: [Lookup]
+      operationId: preflopStrategy
+      summary: Preflop strategy (presolved)
+      description: Charges 1 presolved quota. The situation (RFI/Limp/Raise/3-Bet/4-Bet/5-Bet) is derived from the actions.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PreflopRequest' }
+            example:
+              hole_cards: AhKh
+              positions: { hero: MP }
+              preflop_version: '6max'
+              preflop_actions:
+                - { position: SB, action: small blind, amount: 0.5 }
+                - { position: BB, action: big blind, amount: 1 }
+                - { position: UTG, action: raise, amount: 3 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PreflopResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/QuotaExceeded' }
+
+  /v1/gto/preflop/range:
+    post:
+      tags: [Lookup]
+      operationId: preflopRange
+      summary: Whole preflop range for a spot (presolved)
+      description: |
+        The full 13×13 preflop range for a position + action line in one call — 169 hand types →
+        fold/call/raise frequencies. No `hole_cards` (the spot comes from positions +
+        preflop_actions). Charges 1 presolved quota (one call, not 169). For a range grid.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [table_size, positions, preflop_actions]
+              properties:
+                table_size: { type: string, example: '6max' }
+                preflop_version: { type: string, enum: ['6max', '6max_RC_100bb_200NL', '6max_RC_100bb_100NL', '6max_RC_40bb'], description: 'optional; which 6max preflop chart set to use (same as /v1/gto/preflop). Omit for the default.' }
+                positions: { type: object, properties: { hero: { type: string, example: 'BTN' } } }
+                preflop_actions: { type: array, items: { type: object }, description: 'full action sequence from SB/BB, same as /v1/gto/preflop' }
+            example:
+              table_size: '6max'
+              preflop_version: '6max'
+              positions: { hero: 'BTN' }
+              preflop_actions:
+                - { position: SB, action: small blind, amount: 0.5 }
+                - { position: BB, action: big blind, amount: 1 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  range:
+                    type: object
+                    description: 'hand type (AA / AKs / AKo) -> {fold, call, raise}; 169 entries, each summing to ~1'
+                    additionalProperties:
+                      type: object
+                      properties:
+                        fold: { type: number }
+                        call: { type: number }
+                        raise: { type: number }
+                  quota: { type: object, properties: { used: { type: integer }, limit: { type: integer } } }
+              example:
+                range:
+                  AA: { fold: 0, call: 0, raise: 1 }
+                  AKs: { fold: 0, call: 0, raise: 1 }
+                  '72o': { fold: 1, call: 0, raise: 0 }
+                quota: { used: 7, limit: 100 }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NoSolution' }
+        '429': { $ref: '#/components/responses/QuotaExceeded' }
+
+  /v1/gto/preflop/versions:
+    get:
+      tags: [Lookup]
+      operationId: preflopVersions
+      summary: List installed preflop strategy versions (free)
+      description: >
+        The selectable preflop_version values for /v1/gto/preflop and /v1/gto/preflop/range, with a
+        human label for each and which one is the default (used when preflop_version is omitted).
+        Free (no quota). Use this instead of hardcoding the list — new versions appear here automatically.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  versions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, description: 'pass this as preflop_version' }
+                        label: { type: string }
+                        default: { type: boolean, description: 'present and true on the default version' }
+                  default: { type: string, description: 'the id used when preflop_version is omitted' }
+              example:
+                versions:
+                  - { id: '6max', label: '6 max 100bb Deepsolver', default: true }
+                  - { id: '6max_RC_100bb_200NL', label: '6 max 100bb GG 200NL 3b/f 2.2x - 2.5x' }
+                  - { id: '6max_RC_100bb_100NL', label: '6 max 100bb GG 100NL 3b/f' }
+                  - { id: '6max_RC_40bb', label: '6 max 40bb GG 100NL' }
+                default: '6max'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/gto/flop/tree:
+    post:
+      tags: [Lookup]
+      operationId: flopTree
+      summary: Flop decision tree (presolved)
+      description: Charges 1 presolved quota. Returns starting ranges + all decision nodes (each with a token for /v1/gto/flop/node).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FlopTreeRequest' }
+            examples:
+              SRP:
+                summary: 'Single-raised pot — positions: hero, raiser, caller'
+                value: { board: '2c2h2s', pot_type: SRP, positions: { hero: UTG, raiser: UTG, caller: BTN } }
+              3BET:
+                summary: '3-bet pot — positions: hero, raiser (opener), three_bettor'
+                value: { board: '2c2h2s', pot_type: 3BET, positions: { hero: CO, raiser: CO, three_bettor: BTN } }
+              4BET:
+                summary: '4-bet pot — positions: hero, raiser (opener who 4-bet), three_bettor (3-bettor who called)'
+                value: { board: '2c2h2s', pot_type: 4BET, positions: { hero: CO, raiser: CO, three_bettor: BTN } }
+              LIMP:
+                summary: 'Limped pot — positions: hero, limper (hero or limper must be BB)'
+                value: { board: '2c2h2s', pot_type: LIMP, positions: { hero: BB, limper: BTN } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FlopTreeResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NoSolution' }
+        '429': { $ref: '#/components/responses/QuotaExceeded' }
+
+  /v1/gto/flop/node:
+    post:
+      tags: [Lookup]
+      operationId: flopNode
+      summary: Flop node strategy (presolved) — one decision-tree node
+      description: >
+        Per-node strategy for the flop decision tree (free, token-gated). Pass a `node` token minted by
+        POST /v1/gto/flop/tree. With hole_cards → that hand's mixed strategy at the node; omit hole_cards
+        → the node's whole-range strategy.
+
+
+        This is how you get EVERY hero flop decision — hero in position, hero facing a bet, or a later
+        action: fetch the tree, pick a node where is_hero is true (e.g. root/CHECK/BET_13 = hero faces a
+        bet after checking → fold/call/raise), and pass its token here. The root node (root) is hero's
+        first decision (OOP check/bet).
+
+
+        The flop tree is single-street; for turn/river decisions use the solver line (/v1/gto/solver/*).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FlopNodeRequest' }
+            example:
+              node: 'eyJ...<token from /v1/gto/flop/tree>'
+              hole_cards: AdKd
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NodeStrategyResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NoSolution' }
+
+  /v1/gto/solver:
+    post:
+      tags: [Solver]
+      operationId: solverSchedule
+      summary: Schedule a real-time solve (flop/turn/river)
+      description: >
+        board length sets the street (3=flop, 4=turn, 5=river). Charges 1 solve quota on a fresh
+        trigger; a cached solve returns status=queryable with no solve_quota field (not charged);
+        all solver hosts busy returns 429 status=busy.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SolverScheduleRequest' }
+            example:
+              board: '2c2h2s9d'
+              oop_range: 'AA,KK,QQ,AKs'
+              ip_range: 'JJ,TT,AQs,KQs'
+              pot: 20
+              effective_stack: 90
+              hero: OOP
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SolverScheduleResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429':
+          description: solve quota exceeded, or all solver hosts busy (status=busy)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /v1/gto/solver/tree:
+    post:
+      tags: [Solver]
+      operationId: solverTree
+      summary: Poll the solve tree + node status (free)
+      description: |
+        Poll until spot_status = queryable. To advance a multi-street solve to the dealt runout, pass
+        the dealt cards: `turn_card` (e.g. a flop solve → a specific turn), and/or `river_card`.
+        A river spot from a *flop* solve needs BOTH `turn_card` and `river_card` to be unique;
+        a turn solve needs only `river_card`. Omit both to get the solve's own street.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [solve]
+              properties:
+                solve: { type: string, description: handle from /v1/gto/solver }
+                turn_card: { type: string, description: 'optional; for a flop solve, the dealt turn card (e.g. "Td") — returns nodes under that turn.' }
+                river_card: { type: string, description: 'optional; the dealt river card (e.g. "Qh"). From a flop solve, pair with turn_card to disambiguate.' }
+            example:
+              solve: 'eyJ0Ijoic2x2X3h4eXoi...(handle from /v1/gto/solver)'
+              turn_card: 'Td'
+              river_card: 'Qh'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SolverTreeResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/UpstreamUnavailable' }
+
+  /v1/gto/solver/node:
+    post:
+      tags: [Solver]
+      operationId: solverNode
+      summary: Node strategy from a solve (free)
+      description: hero node → hero strategy; villain node (or omit hole_cards) → whole-range strategy.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [node]
+              properties:
+                node: { type: string, description: node token from /v1/gto/solver/tree }
+                hole_cards: { $ref: '#/components/schemas/HoleCards' }
+            example:
+              node: 'eyJ0Ijoic2x2X3h4eXoi...(token from /v1/gto/solver/tree)'
+              hole_cards: AhKh
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/NodeStrategyResponse'
+                  - type: object
+                    properties:
+                      node_status: { type: string, enum: [available, computing, queryable, expired, error], description: 'expired = solve reclaimed/replaced, reschedule; error = solver per-node strategy_error (with message); computing = still solving.' }
+                      message: { type: string, description: 'present on node_status = error' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/UpstreamUnavailable' }
+
+  /v1/gto/range:
+    post:
+      tags: [Range]
+      operationId: rangeConvert
+      summary: Range conversion — update ranges along an action line
+      description: >
+        Thin proxy to the solver's /api/range. You assemble all inputs including solver_results
+        (the decision tree). Charges 1 presolved quota. Output ranges feed the next street's solve.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RangeRequest' }
+            # solver_results here is a minimal tree for illustration (matches the docs
+            # inline example: board 2c2h2s, line root/CHECK/BET 8.000000). A real flop
+            # tree is large — download examples/range_request.json (~1MB) for the full shape.
+            example:
+              range_oop: 'AA,KK,QQ,JJ,AKs'
+              range_ip: 'TT,99,AQs,KQs,JTs'
+              board: '2c2h2s'
+              node_id: 'root/CHECK/BET 8.000000'
+              solver_results:
+                node_type: action_node
+                player: 1
+                strategy:
+                  actions: ['CHECK', 'BET 8.000000']
+                  strategy:
+                    AsAh: [0.6, 0.4]
+                childrens:
+                  CHECK:
+                    node_type: action_node
+                    player: 0
+                    strategy:
+                      actions: ['CHECK', 'BET 8.000000']
+                      strategy:
+                        KsKh: [0.5, 0.5]
+                    childrens:
+                      'BET 8.000000':
+                        node_type: action_node
+                        player: 1
+                        strategy:
+                          actions: ['FOLD', 'CALL', 'RAISE 18.000000']
+                          strategy:
+                            QsQh: [0.2, 0.5, 0.3]
+                        childrens: {}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RangeResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/QuotaExceeded' }
+        '502': { $ref: '#/components/responses/Upstream' }
+
+  /v1/gto/flop/projected-range:
+    post:
+      tags: [Range]
+      operationId: projectedRange
+      summary: Projected range — flop range update along an action line (presolved quota)
+      description: >
+        Projects the flop ranges forward along an action line for the given board / pot_type / positions.
+        Charges 1 presolved quota. Returns the same range-update output as /v1/gto/range.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProjectedRangeRequest' }
+            example:
+              board: '2c2h2s'
+              pot_type: SRP
+              positions: { hero: UTG, raiser: UTG, caller: BTN }
+              node_id: 'root/BET_4'
+              normalize: true
+              bluff_discount_ratio: 0.8
+              bluff_combos_ratio: 0.5
+              hero_position: oop
+              hero_hand: 'AsKs'
+              partner_hands: ['Ac9c']
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectedRangeResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NoSolution' }
+        '429': { $ref: '#/components/responses/QuotaExceeded' }
+
+  /v1/gto/evs:
+    post:
+      tags: [Range]
+      operationId: queryEvs
+      summary: Node EVs — per-hand, per-action expected values of a completed solve (free)
+      description: >
+        Per-hand, per-action expected values at one node of a completed solve. Give the solve handle
+        (from /v1/gto/solver) + a node_id (from /v1/gto/solver/tree); optional hand filters to one hand.
+        Free (already charged via /v1/gto/solver). Poll /v1/gto/solver/tree until queryable first.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EvsRequest' }
+            example:
+              solve: 'eyJ0Ijoic2x2X3h4eXoi...(handle from /v1/gto/solver)'
+              node_id: 'root'
+      responses:
+        '200':
+          description: 'node EVs; or { spot_status: computing } if not converged yet.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EvsResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'solve handle invalid or not yours' }
+        '410': { description: 'solve expired (TTL); reschedule via /v1/gto/solver' }
+
+  /v1/gto/turn/projected-range:
+    post:
+      tags: [Range]
+      operationId: turnProjectedRange
+      summary: Projected range — turn→river range update along a turn action line (free)
+      description: >
+        The turn→river analog of /v1/gto/flop/projected-range, for a real-time turn solve. Narrows the
+        entering-turn ranges (the ranges the solve was scheduled with, read from the solve's own config)
+        along a turn action line — including the street-closing CALL/CHECK — to the entering-river ranges.
+        Free (the solve was already charged via /v1/gto/solver), like /v1/gto/solver/tree. Returns the same
+        range-update output as /v1/gto/range. Poll /v1/gto/solver/tree until spot_status = queryable first.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TurnProjectedRangeRequest' }
+            example:
+              solve: 'eyJ0Ijoic2x2X3h4eXoi...(handle from /v1/gto/solver)'
+              node_id: 'root/CHECK/BET 6.000000/CALL'
+              normalize: true
+      responses:
+        '200':
+          description: 'narrowed entering-river ranges; or { spot_status: computing } if the solve has not converged yet (keep polling /v1/gto/solver/tree).'
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/RangeResponse'
+                  - type: object
+                    properties:
+                      spot_status: { type: string, enum: [computing] }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '410':
+          description: solve expired (TTL) — reschedule via /v1/gto/solver
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '502': { $ref: '#/components/responses/Upstream' }
+
+components:
+  securitySchemes:
+    BearerApiKey:
+      type: http
+      scheme: bearer
+      description: 'Authorization: Bearer gto_...'
+    XApiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  responses:
+    BadRequest:
+      description: invalid input or missing field
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Unauthorized:
+      description: missing or invalid API key
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    NoSolution:
+      description: no GTO data for this spot/board
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    QuotaExceeded:
+      description: monthly quota exceeded (resets on the 1st)
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Upstream:
+      description: backend temporarily unavailable, retry
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    UpstreamUnavailable:
+      description: 'solver unreachable after the service''s own retries (transport error / 5xx) — retryable; error: upstream_unavailable'
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Forbidden:
+      description: token invalid or not yours
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string, example: missing_api_key }
+        message: { type: string }
+
+    Position:
+      type: string
+      enum: [SB, BB, UTG, MP, CO, BTN]
+
+    HoleCards:
+      type: string
+      description: 'two cards, no separator, e.g. "AdKd". Rank AKQJT98765432, suit c d h s.'
+      pattern: '^[2-9TJQKA][cdhs][2-9TJQKA][cdhs]$'
+      example: AdKd
+
+    BoardInput:
+      type: string
+      description: 'community cards as a no-separator string: 3=flop "2c2h2s", 4=turn, 5=river.'
+      example: '2c2h2s'
+
+    BoardOutput:
+      type: array
+      items: { type: string }
+      description: community cards returned as an array
+      example: ['2c', '2h', '2s']
+
+    RangeString:
+      type: string
+      description: 'comma-separated hand:weight. class notation AA/AKs/AKo (high rank first); weight 0..1, default 1.'
+      example: 'AA:1,KK,AKs:0.5,72o:0.1'
+
+    Quota:
+      type: object
+      properties:
+        used: { type: integer }
+        limit: { type: integer }
+
+    StrategyItem:
+      type: object
+      properties:
+        action: { type: string, description: 'check / call / fold / raise / bet' }
+        frequency: { type: number, format: float, description: '0..1 probability' }
+        sizing_pot: { type: number, description: 'pot-relative sizing, standard % pot convention: a bet = bet ÷ pot; a raise = (raise − amount-to-call) ÷ pot-after-call. e.g. 0.5 / 0.8 / 1. bet/raise only' }
+        amount_bb: { type: number, description: 'absolute bet/raise amount in BB (for bet/raise)' }
+        allin: { type: boolean, description: 'present and true when the action is all-in' }
+      required: [action, frequency]
+
+    PreflopRequest:
+      type: object
+      required: [hole_cards, positions, preflop_actions]
+      properties:
+        hole_cards: { $ref: '#/components/schemas/HoleCards' }
+        positions:
+          type: object
+          required: [hero]
+          properties: { hero: { $ref: '#/components/schemas/Position' } }
+        table_size: { type: string, default: '6max' }
+        preflop_version: { type: string, enum: ['6max', '6max_RC_100bb_200NL', '6max_RC_100bb_100NL', '6max_RC_40bb'], description: 'optional; which 6max preflop chart set to use. Omit for the platform default (6max). Unknown value -> 400 unsupported_preflop_version.' }
+        preflop_actions:
+          type: array
+          description: >
+            Explicit, complete action sequence from the small blind up to the player right before hero
+            (hero is NOT included; hero's position is positions.hero). Must start with small blind (0.5)
+            then big blind (1). amount is the increment newly committed this action in BB (not the running
+            total); pot = sum of all amounts. A raise's resulting total must exceed the current bet and meet
+            the min-raise (= current bet + size of the last raise) unless allin:true; a call's total must
+            exactly match the current bet unless allin:true. Exact amounts only make the pot/sizing_pot exact —
+            GTO frequencies are situation-based (RFI/3bet/4bet + positions) and do not change with bet sizes.
+            Violations return 400 invalid_actions.
+          items:
+            type: object
+            required: [position, action]
+            properties:
+              position: { $ref: '#/components/schemas/Position' }
+              action: { type: string, enum: ['small blind', 'big blind', 'raise', 'call', 'fold'] }
+              amount: { type: number, description: 'increment newly committed this action in BB (required for non-fold actions); omitted/0 for fold' }
+              allin: { type: boolean, description: 'optional; mark a short all-in (raise/call below the min-raise). when true, the min-raise check is skipped' }
+
+    PreflopResponse:
+      type: object
+      properties:
+        hole_cards: { type: string }
+        situation: { type: string, enum: ['RFI', 'Limp', 'Raise', '3-Bet', '4-Bet', '5-Bet'], description: 'table state hero faces: RFI (folded to hero, open spot) / Limp (a limper is in, no raise) / Raise (1 raise) / 3-Bet / 4-Bet / 5-Bet' }
+        strategy: { type: array, items: { $ref: '#/components/schemas/StrategyItem' } }
+        quota: { $ref: '#/components/schemas/Quota' }
+
+    FlopPositions:
+      type: object
+      description: 'required keys depend on pot_type — SRP: hero,raiser,caller; 3BET/4BET: hero,raiser,three_bettor (for 4BET, raiser = the opener who 4-bet, three_bettor = the 3-bettor who called; no four_bettor key); LIMP: hero,limper. hero must be one of the named seats.'
+      properties:
+        hero: { $ref: '#/components/schemas/Position' }
+        raiser: { $ref: '#/components/schemas/Position' }
+        caller: { $ref: '#/components/schemas/Position' }
+        three_bettor: { $ref: '#/components/schemas/Position' }
+        limper: { $ref: '#/components/schemas/Position' }
+
+    FlopNodeRequest:
+      type: object
+      required: [node]
+      properties:
+        node: { type: string, description: 'node token from /v1/gto/flop/tree (the `token` field of a node)' }
+        hole_cards: { $ref: '#/components/schemas/HoleCards' }
+
+    FlopTreeRequest:
+      type: object
+      required: [board, pot_type, positions]
+      properties:
+        board: { $ref: '#/components/schemas/BoardInput' }
+        pot_type: { type: string, enum: [SRP, 3BET, 4BET, LIMP] }
+        positions: { $ref: '#/components/schemas/FlopPositions' }
+        flop_version: { type: string, enum: ['6max', '6max_RC_100bb_200NL', '6max_RC_100bb_100NL', '6max_RC_40bb'], description: 'optional; which flop dataset (one solved per preflop version). Omit for the default (6max). If the chosen version has no data for the spot the service degrades gracefully to 6max. Unknown value -> 400 unsupported_flop_version. Independent of preflop_version. The node tokens carry this version, so /v1/gto/flop/node stays on the same dataset.' }
+
+    FlopTreeResponse:
+      type: object
+      properties:
+        board: { $ref: '#/components/schemas/BoardOutput' }
+        pot_type: { type: string }
+        pot: { type: number }
+        effective_stack: { type: number }
+        oop_range: { $ref: '#/components/schemas/RangeString' }
+        ip_range: { $ref: '#/components/schemas/RangeString' }
+        node_count: { type: integer }
+        nodes:
+          type: array
+          items:
+            type: object
+            properties:
+              node: { type: string, example: 'root/CHECK/BET_8' }
+              is_hero: { type: boolean }
+              token: { type: string }
+        quota: { $ref: '#/components/schemas/Quota' }
+
+    NodeStrategyResponse:
+      type: object
+      description: hero node has `strategy`; villain node (or no hole_cards) has `actions` + `range_strategy`.
+      properties:
+        node: { type: string }
+        is_hero: { type: boolean }
+        hole_cards: { type: string }
+        strategy: { type: array, items: { $ref: '#/components/schemas/StrategyItem' } }
+        actions:
+          type: array
+          items: { type: object, properties: { action: { type: string }, amount_bb: { type: number }, sizing_pot: { type: number }, allin: { type: boolean } } }
+        range_strategy:
+          type: object
+          additionalProperties: { type: array, items: { type: number } }
+          description: 'combo (e.g. "AhKh") -> frequencies aligned to actions'
+        range_hand_count: { type: integer }
+
+    SolverScheduleRequest:
+      type: object
+      required: [board, oop_range, ip_range, pot, effective_stack, hero]
+      properties:
+        board: { $ref: '#/components/schemas/BoardInput' }
+        oop_range: { $ref: '#/components/schemas/RangeString' }
+        ip_range: { $ref: '#/components/schemas/RangeString' }
+        pot: { type: number }
+        effective_stack: { type: number }
+        hero: { type: string, enum: [OOP, IP] }
+        bet_sizes:
+          type: object
+          description: 'optional per-street bet sizes in pot %; flop defaults to 50%'
+          properties:
+            flop: { type: array, items: { type: integer } }
+            turn: { type: array, items: { type: integer } }
+            river: { type: array, items: { type: integer } }
+
+    SolverScheduleResponse:
+      type: object
+      properties:
+        status: { type: string, enum: [computing, queryable, busy] }
+        solve: { type: string, description: handle for /tree and /node }
+        solve_quota:
+          allOf: [ { $ref: '#/components/schemas/Quota' } ]
+          description: present only when a new solve was triggered (charged)
+
+    SolverTreeResponse:
+      type: object
+      properties:
+        street: { type: string, enum: [flop, turn, river] }
+        pot: { type: number }
+        effective_stack: { type: number }
+        spot_status: { type: string, enum: [available, computing, queryable, expired, no_nodes], description: 'no_nodes = solve converged but the queried round/runout has no decision nodes in the tree (terminal — stop polling).' }
+        node_count: { type: integer }
+        nodes:
+          type: array
+          items:
+            type: object
+            properties:
+              node: { type: string }
+              is_hero: { type: boolean }
+              status: { type: string }
+              token: { type: string }
+
+    RangeRequest:
+      type: object
+      required: [range_oop, range_ip, solver_results, node_id]
+      properties:
+        range_oop: { $ref: '#/components/schemas/RangeString' }
+        range_ip: { $ref: '#/components/schemas/RangeString' }
+        solver_results: { type: object, description: the decision tree (you assemble it) }
+        node_id: { type: string, example: 'root/CHECK/BET 8.000000' }
+        board: { $ref: '#/components/schemas/BoardInput' }
+        normalize: { type: boolean, default: true }
+        explain: { type: boolean, default: false }
+        track_hands: { type: array, items: { type: string } }
+        bluff_discount_ratio: { type: number, minimum: 0, maximum: 1 }
+        hero_position: { type: string, enum: [oop, ip], description: 'optional card blocking: which player is Hero. Pair with hero_hand.' }
+        hero_hand: { type: string, example: 'AsKs', description: 'optional card blocking: remove every combo containing one of Hero''s cards from the ranges (range-vs-hand analysis). Echoed back in the response. Applies to /v1/gto/range only, not the projected-range wrappers.' }
+
+    RangeResponse:
+      type: object
+      properties:
+        range_oop_new: { $ref: '#/components/schemas/RangeString' }
+        range_ip_new: { $ref: '#/components/schemas/RangeString' }
+        range_oop_new_raw: { type: string }
+        range_ip_new_raw: { type: string }
+        range_oop_new_raw_before_normalization: { type: string }
+        range_ip_new_raw_before_normalization: { type: string }
+        hand_ranks_oop: { type: string, description: "OOP combos by made-hand strength: 'combo:rank,...' (lower rank = stronger), sorted by rank ascending. Equal-rank tie order is NOT guaranteed stable across endpoints/runs — do not depend on it." }
+        hand_ranks_ip: { type: string, description: 'IP analog of hand_ranks_oop.' }
+        hand_bottom_ranks_oop: { type: string, description: 'The weakest bluff_combos_ratio fraction of hand_ranks_oop (bluff candidates), same format.' }
+        hand_bottom_ranks_ip: { type: string, description: 'IP analog of hand_bottom_ranks_oop.' }
+        node_id: { type: string }
+        board: { $ref: '#/components/schemas/BoardOutput' }
+        path_length: { type: integer }
+        bluff_discount_ratio: { type: number }
+        bluff_combos_ratio: { type: number }
+        quota: { $ref: '#/components/schemas/Quota' }
+
+    ProjectedRangeRequest:
+      type: object
+      required: [board, pot_type, positions]
+      properties:
+        board: { $ref: '#/components/schemas/BoardInput' }
+        pot_type: { type: string, enum: [SRP, 3BET, 4BET, LIMP] }
+        positions: { $ref: '#/components/schemas/FlopPositions' }
+        node_id: { type: string, default: root, example: 'root/BET_4' }
+        normalize: { type: boolean, default: true }
+        bluff_discount_ratio: { type: number, default: 0.8, minimum: 0, maximum: 1 }
+        hero_position: { type: string, enum: [oop, ip], description: 'optional card blocking, pair with hero_hand.' }
+        hero_hand: { type: string, example: 'AsKs', description: 'optional card blocking: remove every combo containing one of Hero''s cards from the villain''s updated range (the range_*_new_raw outputs). Hero''s own hand is also ensured present in Hero''s own range. Echoed back.' }
+        bluff_combos_ratio: { type: number, minimum: 0, maximum: 1, description: 'optional; fraction of the range treated as bluffs (bottom-of-range). Omit to use the server turn/river default. Echoed back.' }
+        partner_hands: { type: array, items: { type: string }, example: ['Ac9c'], description: 'optional; 4-char combos whose cards are removed from the villain''s updated range (range_*_new_raw). Requires hero_position. Input only (not echoed). flop/projected-range only.' }
+        flop_version: { type: string, enum: ['6max', '6max_RC_100bb_200NL', '6max_RC_100bb_100NL', '6max_RC_40bb'], description: 'optional; which flop dataset (one solved per preflop version). Omit for the default (6max). If the chosen version has no data for the spot the service degrades gracefully to 6max. Unknown value -> 400 unsupported_flop_version. Independent of preflop_version.' }
+
+    ProjectedRangeResponse:
+      description: Same fields as RangeResponse, plus pot_type echoed from the request (17 fields total).
+      allOf:
+        - $ref: '#/components/schemas/RangeResponse'
+        - type: object
+          properties:
+            pot_type: { type: string }
+
+    TurnProjectedRangeRequest:
+      type: object
+      required: [solve, node_id]
+      properties:
+        solve: { type: string, description: handle from /v1/gto/solver (a turn solve) }
+        node_id: { type: string, description: 'a turn action line; may end in the street-closing CALL/CHECK. Solver node format with spaces, e.g. "root/CHECK/BET 6.000000/CALL".' }
+        normalize: { type: boolean, default: true }
+        bluff_discount_ratio: { type: number, minimum: 0, maximum: 1 }
+        hero_position: { type: string, enum: [oop, ip], description: 'optional card blocking, pair with hero_hand.' }
+        hero_hand: { type: string, example: 'AsKs', description: 'optional card blocking: remove every combo containing one of Hero''s cards from the villain''s updated range.' }
+        partner_hands: { type: array, items: { type: string }, example: ['Ac9c'], description: 'optional; 4-char combos whose cards are removed from the villain''s updated range. Requires hero_position. Input only.' }
+
+    EvsRequest:
+      type: object
+      required: [solve, node_id]
+      properties:
+        solve: { type: string, description: handle from /v1/gto/solver }
+        node_id: { type: string, example: 'root', description: 'a node from /v1/gto/solver/tree (solver notation, e.g. "root/CHECK/BET 6.000000")' }
+        hand: { type: string, example: 'AsKh', description: 'optional; filter to one hand''s EVs (else all hands)' }
+
+    EvsResponse:
+      type: object
+      description: Per-hand, per-action EVs at the node; each hand's EV array aligns with actions.
+      properties:
+        node_id: { type: string }
+        task_id: { type: string }
+        player: { type: integer }
+        round: { type: string, example: FLOP }
+        actions: { type: array, items: { type: string }, example: ['CHECK', 'BET 4.000000', 'BET 97.000000'] }
+        evs: { type: object, additionalProperties: { type: array, items: { type: number } }, description: 'hand -> per-action EV array (bb); a single array when hand is given', example: { '2c2d': [-0.826359, -0.792223, -1.643411] } }
