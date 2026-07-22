@@ -241,6 +241,10 @@ paths:
               pot: 20
               effective_stack: 90
               hero: OOP
+              bet_sizes: { turn: [67], river: [75] }
+              raise_sizes: { turn: [80], river: [125] }
+              donk_sizes: { turn: [55], river: [90] }
+              raise_limit: 3
       responses:
         '200':
           description: OK
@@ -677,11 +681,29 @@ components:
         hero: { type: string, enum: [OOP, IP] }
         bet_sizes:
           type: object
-          description: 'optional per-street bet sizes in pot %; flop defaults to 50%'
+          description: 'optional per-street opening bet sizes in pot %; flop defaults to 50%'
           properties:
             flop: { type: array, items: { type: integer } }
             turn: { type: array, items: { type: integer } }
             river: { type: array, items: { type: integer } }
+        raise_sizes:
+          type: object
+          description: 'optional per-street raise sizes in pot %; omitted streets reuse bet_sizes/defaults'
+          properties:
+            flop: { type: array, items: { type: integer } }
+            turn: { type: array, items: { type: integer } }
+            river: { type: array, items: { type: integer } }
+        donk_sizes:
+          type: object
+          description: 'optional OOP donk-lead sizes in pot %; turn defaults to 67%, river defaults to 100%'
+          properties:
+            turn: { type: array, items: { type: integer } }
+            river: { type: array, items: { type: integer } }
+        raise_limit:
+          type: integer
+          minimum: 1
+          maximum: 4
+          description: 'optional tree-wide raise cap; defaults to 3 for flop/turn solves and 4 for river-only solves'
 
     SolverScheduleResponse:
       type: object

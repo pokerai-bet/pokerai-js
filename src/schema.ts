@@ -406,12 +406,25 @@ export interface components {
             effective_stack: number;
             /** @enum {string} */
             hero: "OOP" | "IP";
-            /** @description optional per-street bet sizes in pot %; flop defaults to 50% */
+            /** @description optional per-street opening bet sizes in pot %; flop defaults to 50% */
             bet_sizes?: {
                 flop?: number[];
                 turn?: number[];
                 river?: number[];
             };
+            /** @description optional per-street raise sizes in pot %; omitted streets reuse bet_sizes/defaults */
+            raise_sizes?: {
+                flop?: number[];
+                turn?: number[];
+                river?: number[];
+            };
+            /** @description optional OOP donk-lead sizes in pot %; turn defaults to 67%, river defaults to 100% */
+            donk_sizes?: {
+                turn?: number[];
+                river?: number[];
+            };
+            /** @description optional tree-wide raise cap; defaults to 3 for flop/turn solves and 4 for river-only solves */
+            raise_limit?: number;
         };
         SolverScheduleResponse: {
             /** @enum {string} */
