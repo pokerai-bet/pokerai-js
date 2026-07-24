@@ -5,6 +5,7 @@ export type PokeraiClient = Client<paths>;
 export type SolverScheduleRequest =
   paths["/v1/gto/solver"]["post"]["requestBody"]["content"]["application/json"];
 export type SolverScheduleResponse = components["schemas"]["SolverScheduleResponse"];
+export type SolverReleaseResponse = components["schemas"]["SolverReleaseResponse"];
 
 export interface PokeraiSolverOptions {
   /** Your Pokerai API key (`gto_...`). */
@@ -22,14 +23,6 @@ export interface PokeraiSolverOptions {
 export interface SolverScheduleRetryOptions {
   /** Number of busy 429 retries. Default: 3. */
   maxRetries?: number;
-}
-
-export interface SolverReleaseResponse {
-  status?: string;
-  released?: boolean;
-  solver_released?: boolean;
-  solver_release_reason?: string;
-  [key: string]: unknown;
 }
 
 export interface SolverReleaseAttempt {

@@ -228,7 +228,7 @@ paths:
       description: >
         board length sets the street (3=flop, 4=turn, 5=river). Charges 1 solve quota on a fresh
         trigger; a cached solve returns status=queryable with no solve_quota field (not charged);
-        all solver hosts busy returns 429 status=busy.
+        all solver hosts busy returns 429 status=busy with Retry-After and retry_after_ms.
       requestBody:
         required: true
         content:
@@ -254,7 +254,14 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '429':
-          description: solve quota exceeded, or all solver hosts busy (status=busy)
+          description: >
+            Solve quota exceeded, or all solver hosts busy. Busy responses use status=busy /
+            error=solver_pool_busy and include Retry-After plus body retry_after_ms; quota errors
+            must not be blindly retried.
+          headers:
+            Retry-After:
+              schema: { type: string }
+              description: seconds to wait before retrying a solver_pool_busy response
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
@@ -326,6 +333,36 @@ paths:
                       message: { type: string, description: 'present on node_status = error' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '503': { $ref: '#/components/responses/UpstreamUnavailable' }
+
+  /v1/gto/solver/release:
+    post:
+      tags: [Solver]
+      operationId: solverRelease
+      summary: Release a real-time solve (free, idempotent)
+      description: >
+        Best-effort release for a solve handle from /v1/gto/solver. Call this after you finish
+        all tree/node/evs/projected-range queries for the solve, usually in finally. Do not release
+        while you still plan to query the same solve's turn/river subtree.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [solve]
+              properties:
+                solve: { type: string, description: handle from /v1/gto/solver }
+            example:
+              solve: 'eyJ0Ijoic2x2X3h4eXoi...(handle from /v1/gto/solver)'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SolverReleaseResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   /v1/gto/range:
     post:
@@ -524,6 +561,9 @@ components:
       properties:
         error: { type: string, example: missing_api_key }
         message: { type: string }
+        status: { type: string, description: 'optional machine status, e.g. busy for solver pool contention' }
+        reason: { type: string, description: 'optional machine reason, e.g. solver_pool_busy' }
+        retry_after_ms: { type: integer, description: 'optional retry delay in milliseconds for temporary busy responses' }
 
     Position:
       type: string
@@ -713,6 +753,14 @@ components:
         solve_quota:
           allOf: [ { $ref: '#/components/schemas/Quota' } ]
           description: present only when a new solve was triggered (charged)
+
+    SolverReleaseResponse:
+      type: object
+      properties:
+        status: { type: string, example: success }
+        released: { type: boolean, description: true when the coordinator released a registered solve claim }
+        solver_released: { type: boolean, description: true when the underlying solver slot accepted release }
+        solver_release_reason: { type: string, description: release outcome reason from the solver pool }
 
     SolverTreeResponse:
       type: object

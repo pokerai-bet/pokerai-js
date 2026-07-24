@@ -121,7 +121,7 @@ export interface paths {
         put?: never;
         /**
          * Schedule a real-time solve (flop/turn/river)
-         * @description board length sets the street (3=flop, 4=turn, 5=river). Charges 1 solve quota on a fresh trigger; a cached solve returns status=queryable with no solve_quota field (not charged); all solver hosts busy returns 429 status=busy.
+         * @description board length sets the street (3=flop, 4=turn, 5=river). Charges 1 solve quota on a fresh trigger; a cached solve returns status=queryable with no solve_quota field (not charged); all solver hosts busy returns 429 status=busy with Retry-After and retry_after_ms.
          */
         post: operations["solverSchedule"];
         delete?: never;
@@ -167,6 +167,26 @@ export interface paths {
          * @description hero node → hero strategy; villain node (or omit hole_cards) → whole-range strategy.
          */
         post: operations["solverNode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/gto/solver/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Release a real-time solve (free, idempotent)
+         * @description Best-effort release for a solve handle from /v1/gto/solver. Call this after you finish all tree/node/evs/projected-range queries for the solve, usually in finally. Do not release while you still plan to query the same solve's turn/river subtree.
+         */
+        post: operations["solverRelease"];
         delete?: never;
         options?: never;
         head?: never;
@@ -261,6 +281,12 @@ export interface components {
             /** @example missing_api_key */
             error?: string;
             message?: string;
+            /** @description optional machine status, e.g. busy for solver pool contention */
+            status?: string;
+            /** @description optional machine reason, e.g. solver_pool_busy */
+            reason?: string;
+            /** @description optional retry delay in milliseconds for temporary busy responses */
+            retry_after_ms?: number;
         };
         /** @enum {string} */
         Position: "SB" | "BB" | "UTG" | "MP" | "CO" | "BTN";
@@ -433,6 +459,16 @@ export interface components {
             solve?: string;
             /** @description present only when a new solve was triggered (charged) */
             solve_quota?: components["schemas"]["Quota"];
+        };
+        SolverReleaseResponse: {
+            /** @example success */
+            status?: string;
+            /** @description true when the coordinator released a registered solve claim */
+            released?: boolean;
+            /** @description true when the underlying solver slot accepted release */
+            solver_released?: boolean;
+            /** @description release outcome reason from the solver pool */
+            solver_release_reason?: string;
         };
         SolverTreeResponse: {
             /** @enum {string} */
@@ -971,7 +1007,32 @@ export interface operations {
                  *       "ip_range": "JJ,TT,AQs,KQs",
                  *       "pot": 20,
                  *       "effective_stack": 90,
-                 *       "hero": "OOP"
+                 *       "hero": "OOP",
+                 *       "bet_sizes": {
+                 *         "turn": [
+                 *           67
+                 *         ],
+                 *         "river": [
+                 *           75
+                 *         ]
+                 *       },
+                 *       "raise_sizes": {
+                 *         "turn": [
+                 *           80
+                 *         ],
+                 *         "river": [
+                 *           125
+                 *         ]
+                 *       },
+                 *       "donk_sizes": {
+                 *         "turn": [
+                 *           55
+                 *         ],
+                 *         "river": [
+                 *           90
+                 *         ]
+                 *       },
+                 *       "raise_limit": 3
                  *     }
                  */
                 "application/json": components["schemas"]["SolverScheduleRequest"];
@@ -989,9 +1050,11 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            /** @description solve quota exceeded, or all solver hosts busy (status=busy) */
+            /** @description Solve quota exceeded, or all solver hosts busy. Busy responses use status=busy / error=solver_pool_busy and include Retry-After plus body retry_after_ms; quota errors must not be blindly retried. */
             429: {
                 headers: {
+                    /** @description seconds to wait before retrying a solver_pool_busy response */
+                    "Retry-After"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1082,6 +1145,41 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             503: components["responses"]["UpstreamUnavailable"];
+        };
+    };
+    solverRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "solve": "eyJ0Ijoic2x2X3h4eXoi...(handle from /v1/gto/solver)"
+                 *     }
+                 */
+                "application/json": {
+                    /** @description handle from /v1/gto/solver */
+                    solve: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SolverReleaseResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     rangeConvert: {
