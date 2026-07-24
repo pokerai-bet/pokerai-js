@@ -48,6 +48,38 @@ Endpoints: `preflop`, `preflop/range`, `preflop/versions`, `flop/tree`, `flop/no
 `solver`, `solver/tree`, `solver/node` (real-time); `range`, `evs`, projected ranges. See the
 [reference](https://pokerai.bet/reference). Auth is your API key, sent as `Authorization: Bearer`.
 
+## Real-time solver lifecycle
+
+Real-time solves hold a shared solver slot while you poll/query the tree. Use `createPokeraiSolver`
+when you want a lifecycle-safe wrapper: it retries temporary `429 busy` responses using
+`retry_after_ms` / `Retry-After`, and releases the solve in `finally` after your callback finishes.
+Quota 429s are not retried.
+
+```ts
+import { createPokeraiSolver } from "@pokerai/client";
+
+const solver = createPokeraiSolver({ apiKey: "gto_your_key" });
+
+const tree = await solver.withSolve(
+  {
+    board: "2c2d2h9s",
+    oop_range: "AA,KK",
+    ip_range: "QQ,JJ",
+    pot: 20,
+    effective_stack: 90,
+    hero: "OOP",
+  },
+  async (scheduled) => {
+    // Query every tree/node/runout you still need for this solve inside this callback.
+    const { data, error } = await solver.client.POST("/v1/gto/solver/tree", {
+      body: { solve: scheduled.solve ?? "" },
+    });
+    if (error) throw new Error(JSON.stringify(error));
+    return data;
+  },
+);
+```
+
 ## Prefer named tools for an LLM agent?
 
 See **[@pokerai/mcp](https://www.npmjs.com/package/@pokerai/mcp)** — the same API as MCP tools.

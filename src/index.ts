@@ -37,4 +37,17 @@ export function createPokeraiClient(options: PokeraiClientOptions): PokeraiClien
   });
 }
 
+export {
+  PokeraiApiError,
+  PokeraiSolver,
+  createPokeraiSolver,
+  isSolverBusy429,
+  solverRetryAfterMs,
+  type PokeraiSolverOptions,
+  type SolverReleaseAttempt,
+  type SolverReleaseResponse,
+  type SolverScheduleRequest,
+  type SolverScheduleResponse,
+  type SolverScheduleRetryOptions,
+} from "./solver.js";
 export type { paths, components } from "./schema.js";
