@@ -1,0 +1,57 @@
+name: Sync OpenAPI
+
+on:
+  repository_dispatch:
+    types: [openapi_updated]
+  workflow_dispatch:
+    inputs:
+      openapi_yaml_url:
+        description: OpenAPI YAML URL
+        required: false
+        default: https://pokerai.bet/openapi.yaml
+      source_sha:
+        description: gv-gto-auth source SHA
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Download OpenAPI
+        env:
+          DISPATCH_URL: ${{ github.event.client_payload.openapi_yaml_url }}
+          INPUT_URL: ${{ inputs.openapi_yaml_url }}
+        run: |
+          set -euo pipefail
+          url="${DISPATCH_URL:-${INPUT_URL:-https://pokerai.bet/openapi.yaml}}"
+          curl -fsSL "$url" -o openapi.yaml
+
+      - run: npm run gen
+      - run: npm run build
+
+      - name: Create sync pull request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: automation/sync-openapi
+          delete-branch: true
+          title: Sync OpenAPI-generated client
+          commit-message: chore: sync OpenAPI-generated client
+          body: |
+            Automated OpenAPI sync from Pokerai API.
+
+            Source repo: ${{ github.event.client_payload.source_repo || 'pokerai-bet/gv-gto-auth' }}
+            Source SHA: ${{ github.event.client_payload.source_sha || inputs.source_sha || 'manual' }}
+            Spec URL: ${{ github.event.client_payload.openapi_yaml_url || inputs.openapi_yaml_url || 'https://pokerai.bet/openapi.yaml' }}
