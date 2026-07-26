@@ -327,6 +327,42 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '503': { $ref: '#/components/responses/UpstreamUnavailable' }
 
+  /v1/gto/solver/release:
+    post:
+      tags: [Solver]
+      operationId: solverRelease
+      summary: Release a solve's pool port early (free, optional)
+      description: |
+        Signal you are done querying this solve so its solver port returns to the pool immediately
+        instead of lingering the cache TTL (which can 429-busy the next request when the pool is small).
+        Optional — skipping it just falls back to the TTL. Call it only AFTER your last
+        /v1/gto/solver/tree and /v1/gto/solver/node for this solve: once released the port may be
+        reused, and further queries on this handle return node_status = expired. Idempotent; does not
+        restart the solver.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [solve]
+              properties:
+                solve: { type: string, description: handle from /v1/gto/solver }
+            example:
+              solve: 'eyJ0Ijoic2x2X3h4eXoi...(handle from /v1/gto/solver)'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  released: { type: boolean, description: 'true if a live port claim was dropped; false if the solve had already expired (no-op)' }
+              example:
+                released: true
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
   /v1/gto/range:
     post:
       tags: [Range]

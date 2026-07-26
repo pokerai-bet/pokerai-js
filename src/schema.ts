@@ -173,6 +173,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/gto/solver/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Release a solve's pool port early (free, optional)
+         * @description Signal you are done querying this solve so its solver port returns to the pool immediately
+         *     instead of lingering the cache TTL (which can 429-busy the next request when the pool is small).
+         *     Optional — skipping it just falls back to the TTL. Call it only AFTER your last
+         *     /v1/gto/solver/tree and /v1/gto/solver/node for this solve: once released the port may be
+         *     reused, and further queries on this handle return node_status = expired. Idempotent; does not
+         *     restart the solver.
+         */
+        post: operations["solverRelease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/gto/range": {
         parameters: {
             query?: never;
@@ -971,7 +996,32 @@ export interface operations {
                  *       "ip_range": "JJ,TT,AQs,KQs",
                  *       "pot": 20,
                  *       "effective_stack": 90,
-                 *       "hero": "OOP"
+                 *       "hero": "OOP",
+                 *       "bet_sizes": {
+                 *         "turn": [
+                 *           67
+                 *         ],
+                 *         "river": [
+                 *           75
+                 *         ]
+                 *       },
+                 *       "raise_sizes": {
+                 *         "turn": [
+                 *           80
+                 *         ],
+                 *         "river": [
+                 *           125
+                 *         ]
+                 *       },
+                 *       "donk_sizes": {
+                 *         "turn": [
+                 *           55
+                 *         ],
+                 *         "river": [
+                 *           90
+                 *         ]
+                 *       },
+                 *       "raise_limit": 3
                  *     }
                  */
                 "application/json": components["schemas"]["SolverScheduleRequest"];
@@ -1082,6 +1132,47 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             503: components["responses"]["UpstreamUnavailable"];
+        };
+    };
+    solverRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "solve": "eyJ0Ijoic2x2X3h4eXoi...(handle from /v1/gto/solver)"
+                 *     }
+                 */
+                "application/json": {
+                    /** @description handle from /v1/gto/solver */
+                    solve: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "released": true
+                     *     }
+                     */
+                    "application/json": {
+                        /** @description true if a live port claim was dropped; false if the solve had already expired (no-op) */
+                        released?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
     rangeConvert: {
