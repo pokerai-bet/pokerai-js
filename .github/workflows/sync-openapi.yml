@@ -48,7 +48,7 @@ jobs:
           branch: automation/sync-openapi
           delete-branch: true
           title: Sync OpenAPI-generated client
-          commit-message: chore: sync OpenAPI-generated client
+          commit-message: "chore: sync OpenAPI-generated client"
           body: |
             Automated OpenAPI sync from Pokerai API.
 
