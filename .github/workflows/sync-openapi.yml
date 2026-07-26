@@ -27,7 +27,7 @@ jobs:
         with:
           node-version: 20
 
-      - run: npm install
+      - run: npm install --no-package-lock
 
       - name: Download OpenAPI
         env:
@@ -42,6 +42,7 @@ jobs:
       - run: npm run build
 
       - name: Create sync pull request
+        continue-on-error: true
         uses: peter-evans/create-pull-request@v6
         with:
           branch: automation/sync-openapi
