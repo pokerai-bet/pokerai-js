@@ -33,7 +33,7 @@ jobs:
       - name: Download OpenAPI
         env:
           DISPATCH_URL: ${{ github.event.client_payload.openapi_yaml_url }}
-          INPUT_URL: ${{ inputs.openapi_yaml_url }}
+          INPUT_URL: ${{ github.event.inputs.openapi_yaml_url }}
         run: |
           set -euo pipefail
           url="${DISPATCH_URL:-${INPUT_URL:-https://pokerai.bet/openapi.yaml}}"
@@ -52,6 +52,5 @@ jobs:
           body: |
             Automated OpenAPI sync from Pokerai API.
 
-            Source repo: ${{ github.event.client_payload.source_repo || 'pokerai-bet/gv-gto-auth' }}
-            Source SHA: ${{ github.event.client_payload.source_sha || inputs.source_sha || 'manual' }}
-            Spec URL: ${{ github.event.client_payload.openapi_yaml_url || inputs.openapi_yaml_url || 'https://pokerai.bet/openapi.yaml' }}
+            Source repo: pokerai-bet/gv-gto-auth
+            Spec URL: https://pokerai.bet/openapi.yaml
