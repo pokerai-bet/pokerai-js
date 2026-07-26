@@ -33,7 +33,7 @@ jobs:
       - name: Download OpenAPI
         env:
           DISPATCH_URL: ${{ github.event.client_payload.openapi_yaml_url }}
-          INPUT_URL: ${{ github.event.inputs.openapi_yaml_url }}
+          INPUT_URL: ${{ inputs.openapi_yaml_url }}
         run: |
           set -euo pipefail
           url="${DISPATCH_URL:-${INPUT_URL:-https://pokerai.bet/openapi.yaml}}"
