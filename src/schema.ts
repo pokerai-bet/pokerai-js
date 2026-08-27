@@ -38,6 +38,8 @@ export interface paths {
          * @description The full 13×13 preflop range for a position + action line in one call — 169 hand types →
          *     fold/call/raise frequencies. No `hole_cards` (the spot comes from positions +
          *     preflop_actions). Charges 1 presolved quota (one call, not 169). For a range grid.
+         *
+         *     Set `include_flop_pruning_guarantees: true` to read an offline immutable manifest for a completed Flop batch; this is not a live Flop or database query and there is no `flop_context`. The three statuses are `complete`, `incomplete_coverage`, and `awaiting_terminal_preflop_action`. `always_removed` is conservative: it proves zero weight only across every compatible canonical board in that one terminal scenario. It does not replace the board-specific effective range from POST /v1/gto/flop/tree.
          */
         post: operations["preflopRange"];
         delete?: never;
@@ -77,7 +79,7 @@ export interface paths {
         put?: never;
         /**
          * Flop decision tree (presolved)
-         * @description Charges 1 presolved quota. Returns starting ranges + all decision nodes (each with a token for /v1/gto/flop/node).
+         * @description Charges 1 presolved quota. Returns starting ranges + all decision nodes (each with a token for /v1/gto/flop/node). Top-level oop_range and ip_range are the effective aliases consumed by the strategy tree; use ranges.effective, never ranges.requested, for range conversion. policy_audit_status=mismatch means a historical effective range differs from current policy, not that the artifact and range disagree. Missing policy configuration fails closed.
          */
         post: operations["flopTree"];
         delete?: never;
@@ -101,7 +103,7 @@ export interface paths {
          *
          *     This is how you get EVERY hero flop decision — hero in position, hero facing a bet, or a later action: fetch the tree, pick a node where is_hero is true (e.g. root/CHECK/BET_13 = hero faces a bet after checking → fold/call/raise), and pass its token here. The root node (root) is hero's first decision (OOP check/bet).
          *
-         *     The flop tree is single-street; for turn/river decisions use the solver line (/v1/gto/solver/*).
+         *     If requested hole_cards were removed from the tree's effective range, this endpoint returns terminal HTTP 422 hand_not_in_effective_range; do not retry it and do not describe it as 404. The flop tree is single-street; for turn/river decisions use the solver line (/v1/gto/solver/*).
          */
         post: operations["flopNode"];
         delete?: never;
@@ -167,6 +169,31 @@ export interface paths {
          * @description hero node → hero strategy; villain node (or omit hole_cards) → whole-range strategy.
          */
         post: operations["solverNode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/gto/solver/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Release a solve's pool port early (free, optional)
+         * @description Signal you are done querying this solve so its solver port returns to the pool immediately
+         *     instead of lingering the cache TTL (which can 429-busy the next request when the pool is small).
+         *     Optional — skipping it just falls back to the TTL. Call it only AFTER your last
+         *     /v1/gto/solver/tree and /v1/gto/solver/node for this solve: once released the port may be
+         *     reused, and further queries on this handle return node_status = expired. Idempotent; does not
+         *     restart the solver.
+         */
+        post: operations["solverRelease"];
         delete?: never;
         options?: never;
         head?: never;
@@ -247,6 +274,452 @@ export interface paths {
          * @description The turn→river analog of /v1/gto/flop/projected-range, for a real-time turn solve. Narrows the entering-turn ranges (the ranges the solve was scheduled with, read from the solve's own config) along a turn action line — including the street-closing CALL/CHECK — to the entering-river ranges. Free (the solve was already charged via /v1/gto/solver), like /v1/gto/solver/tree. Returns the same range-update output as /v1/gto/range. Poll /v1/gto/solver/tree until spot_status = queryable first.
          */
         post: operations["turnProjectedRange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Health */
+        get: operations["health_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pokerkit/texture": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Texture */
+        post: operations["texture_v1_pokerkit_texture_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pokerkit/nuts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Nuts */
+        post: operations["nuts_v1_pokerkit_nuts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pokerkit/category-combos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Category Combos */
+        post: operations["category_combos_v1_pokerkit_category_combos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pokerkit/board-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Board Report */
+        post: operations["board_report_v1_pokerkit_board_report_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pokerkit/hand-tier": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Hand Tier */
+        post: operations["hand_tier_v1_pokerkit_hand_tier_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pokerkit/draws": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Draws */
+        post: operations["draws_v1_pokerkit_draws_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pokerkit/outs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Outs */
+        post: operations["outs_v1_pokerkit_outs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pokerkit/blockers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Blockers */
+        post: operations["blockers_v1_pokerkit_blockers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pokerkit/hand-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Hand Report */
+        post: operations["hand_report_v1_pokerkit_hand_report_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pokerkit/range/expand": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Range Expand */
+        post: operations["range_expand_v1_pokerkit_range_expand_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pokerkit/range/value": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Range Value */
+        post: operations["range_value_v1_pokerkit_range_value_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pokerkit/range/nut-advantage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Range Nut Advantage */
+        post: operations["range_nut_advantage_v1_pokerkit_range_nut_advantage_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pokerkit/cards/normalize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cards Normalize */
+        post: operations["cards_normalize_v1_pokerkit_cards_normalize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pokerkit/eval/hand": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Eval Hand */
+        post: operations["eval_hand_v1_pokerkit_eval_hand_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pokerkit/eval/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Eval Compare */
+        post: operations["eval_compare_v1_pokerkit_eval_compare_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pokerkit/equity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Equity */
+        post: operations["equity_v1_pokerkit_equity_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pokerkit/hand-strength": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Hand Strength */
+        post: operations["hand_strength_v1_pokerkit_hand_strength_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pokerkit/icm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Icm */
+        post: operations["icm_v1_pokerkit_icm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pokerkit/range/equity-advantage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Range Equity Advantage */
+        post: operations["range_equity_advantage_v1_pokerkit_range_equity_advantage_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pokerkit/notation/parse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Notation Parse */
+        post: operations["notation_parse_v1_pokerkit_notation_parse_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pokerkit/games/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Games State */
+        post: operations["games_state_v1_pokerkit_games_state_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pokerkit/games/step": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Games Step */
+        post: operations["games_step_v1_pokerkit_games_step_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pokerkit/notation/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Notation Replay */
+        post: operations["notation_replay_v1_pokerkit_notation_replay_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pokerkit/combined-openapi.json": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Combined Openapi
+         * @description GTO spec + this service's auto spec merged into one document (paths are disjoint;
+         *     pokerkit schemas are prefixed only on a name collision). Always reflects current code.
+         */
+        get: operations["combined_openapi_v1_pokerkit_combined_openapi_json_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pokerkit/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Meta */
+        get: operations["meta_v1_pokerkit_meta_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -363,6 +836,8 @@ export interface components {
              * @enum {string}
              */
             flop_version?: "6max" | "6max_RC_100bb_200NL" | "6max_RC_100bb_100NL" | "6max_RC_40bb";
+            /** @description optional hero hand. When supplied, the response may include hero_hand_coverage for the requested/effective range transition. */
+            hole_cards?: components["schemas"]["HoleCards"];
         };
         FlopTreeResponse: {
             board?: components["schemas"]["BoardOutput"];
@@ -371,6 +846,42 @@ export interface components {
             effective_stack?: number;
             oop_range?: components["schemas"]["RangeString"];
             ip_range?: components["schemas"]["RangeString"];
+            /** @description Requested and effective starting ranges. Effective is the strategy-tree source; adjusted states whether they differ. */
+            ranges?: {
+                requested?: {
+                    oop?: components["schemas"]["RangeString"];
+                    ip?: components["schemas"]["RangeString"];
+                };
+                effective?: {
+                    oop?: components["schemas"]["RangeString"];
+                    ip?: components["schemas"]["RangeString"];
+                };
+                adjusted?: boolean;
+                adjustment_summary?: {
+                    oop_removed?: number;
+                    oop_reweighted?: number;
+                    ip_removed?: number;
+                    ip_reweighted?: number;
+                };
+            };
+            range_provenance?: {
+                /** @enum {string} */
+                effective_source?: "persisted_solve_config";
+                /**
+                 * @description mismatch is historical effective-versus-current-policy disagreement, not an artifact/range mismatch.
+                 * @enum {string}
+                 */
+                policy_audit_status?: "verified" | "mismatch";
+            };
+            /** @description Present only when hole_cards was requested on the tree. */
+            hero_hand_coverage?: {
+                hand?: components["schemas"]["HoleCards"];
+                position?: string;
+                requested_weight?: number;
+                effective_weight?: number;
+                /** @enum {string} */
+                status?: "unchanged" | "reweighted" | "removed" | "not_in_requested_range";
+            };
             node_count?: number;
             nodes?: {
                 /** @example root/CHECK/BET_8 */
@@ -611,6 +1122,488 @@ export interface components {
                 [key: string]: number[];
             };
         };
+        /** BoardRequest */
+        BoardRequest: {
+            /**
+             * Board
+             * @description 3/4/5 board cards, e.g. 'AsKsQs'
+             * @example AsKsQs
+             */
+            board: string;
+            /**
+             * Hand Type
+             * @example StandardHighHand
+             */
+            hand_type?: string | null;
+            /**
+             * Dead
+             * @description optional dead/removed cards
+             * @default
+             */
+            dead: string;
+        };
+        /** CardsRequest */
+        CardsRequest: {
+            /**
+             * Cards
+             * @description cards to normalize/validate
+             * @example AsKsQs
+             */
+            cards: string;
+        };
+        /** EquityAdvantageRequest */
+        EquityAdvantageRequest: {
+            /**
+             * Hero
+             * @example [
+             *       "AA",
+             *       "KK",
+             *       "AKs"
+             *     ]
+             */
+            hero: string[];
+            /**
+             * Villain
+             * @example [
+             *       "QQ",
+             *       "JJ",
+             *       "AQs"
+             *     ]
+             */
+            villain: string[];
+            /**
+             * Board
+             * @example AsKsQs
+             */
+            board: string;
+            /** Sample Count */
+            sample_count?: number | null;
+            /** Seed */
+            seed?: number | null;
+            /** Hand Type */
+            hand_type?: string | null;
+        };
+        /** EquityRequest */
+        EquityRequest: {
+            /**
+             * Ranges
+             * @description per-player ranges (notation)
+             * @example [
+             *       [
+             *         "AA",
+             *         "KK"
+             *       ],
+             *       [
+             *         "QQ",
+             *         "JJ"
+             *       ]
+             *     ]
+             */
+            ranges: string[][];
+            /**
+             * Board
+             * @default
+             * @example AhKhQh
+             */
+            board: string;
+            /**
+             * Sample Count
+             * @description Monte-Carlo samples (capped); default applies if unset
+             */
+            sample_count?: number | null;
+            /**
+             * Seed
+             * @description seed for reproducible sampling
+             */
+            seed?: number | null;
+        };
+        /** EvalCompareRequest */
+        EvalCompareRequest: {
+            /**
+             * Holdings
+             * @description 2+ holdings to rank
+             * @example [
+             *       "AcAd",
+             *       "KcKd",
+             *       "JhTh"
+             *     ]
+             */
+            holdings: string[];
+            /**
+             * Board
+             * @default
+             * @example AhKhQh
+             */
+            board: string;
+            /** Hand Type */
+            hand_type?: string | null;
+        };
+        /** EvalHandRequest */
+        EvalHandRequest: {
+            /**
+             * Hole
+             * @example AcAd
+             */
+            hole: string;
+            /**
+             * Board
+             * @default
+             * @example AhKhQh
+             */
+            board: string;
+            /** Hand Type */
+            hand_type?: string | null;
+        };
+        /** GameStateRequest */
+        GameStateRequest: {
+            /**
+             * Variant
+             * @description variant code, e.g. NT (NL hold'em); see /meta
+             * @example NT
+             */
+            variant: string;
+            /**
+             * Starting Stacks
+             * @example [
+             *       200,
+             *       200
+             *     ]
+             */
+            starting_stacks: number[];
+            /**
+             * Antes
+             * @example [
+             *       0,
+             *       0
+             *     ]
+             */
+            antes: number[];
+            /**
+             * Blinds Or Straddles
+             * @example [
+             *       1,
+             *       2
+             *     ]
+             */
+            blinds_or_straddles?: number[] | null;
+            /** Bring In */
+            bring_in?: number | null;
+            /** Small Bet */
+            small_bet?: number | null;
+            /** Big Bet */
+            big_bet?: number | null;
+            /**
+             * Min Bet
+             * @description required for no-limit/pot-limit, e.g. 2
+             */
+            min_bet?: number | null;
+            /**
+             * Ante Trimming Status
+             * @default false
+             */
+            ante_trimming_status: boolean;
+            /**
+             * Automations
+             * @description Automation names; omit for pokerkit defaults
+             */
+            automations?: string[] | null;
+            /**
+             * Actions
+             * @example [
+             *       "d dh p1 AhKh",
+             *       "d dh p2 QsQd",
+             *       "p2 cbr 6"
+             *     ]
+             */
+            actions?: string[];
+            /**
+             * Viewer
+             * @description reserved (hidden-info tier); v1 is full-information
+             */
+            viewer?: number | null;
+        };
+        /** GameStepRequest */
+        GameStepRequest: {
+            /**
+             * Variant
+             * @description variant code, e.g. NT (NL hold'em); see /meta
+             * @example NT
+             */
+            variant: string;
+            /**
+             * Starting Stacks
+             * @example [
+             *       200,
+             *       200
+             *     ]
+             */
+            starting_stacks: number[];
+            /**
+             * Antes
+             * @example [
+             *       0,
+             *       0
+             *     ]
+             */
+            antes: number[];
+            /**
+             * Blinds Or Straddles
+             * @example [
+             *       1,
+             *       2
+             *     ]
+             */
+            blinds_or_straddles?: number[] | null;
+            /** Bring In */
+            bring_in?: number | null;
+            /** Small Bet */
+            small_bet?: number | null;
+            /** Big Bet */
+            big_bet?: number | null;
+            /**
+             * Min Bet
+             * @description required for no-limit/pot-limit, e.g. 2
+             */
+            min_bet?: number | null;
+            /**
+             * Ante Trimming Status
+             * @default false
+             */
+            ante_trimming_status: boolean;
+            /**
+             * Automations
+             * @description Automation names; omit for pokerkit defaults
+             */
+            automations?: string[] | null;
+            /**
+             * Actions
+             * @example [
+             *       "d dh p1 AhKh",
+             *       "d dh p2 QsQd",
+             *       "p2 cbr 6"
+             *     ]
+             */
+            actions?: string[];
+            /**
+             * Viewer
+             * @description reserved (hidden-info tier); v1 is full-information
+             */
+            viewer?: number | null;
+            /**
+             * Next Action
+             * @description the player/deal action to apply
+             * @example p1 cc
+             */
+            next_action: string;
+            /**
+             * Expected Action Count
+             * @description optimistic-concurrency token = len(actions) you are extending; 409 on mismatch
+             */
+            expected_action_count?: number | null;
+        };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HandRequest */
+        HandRequest: {
+            /**
+             * Hole
+             * @description 2 hole cards, e.g. 'JhTh'
+             * @example JhTh
+             */
+            hole: string;
+            /**
+             * Board
+             * @example AsKsQs
+             */
+            board: string;
+            /** Hand Type */
+            hand_type?: string | null;
+            /**
+             * Dead
+             * @default
+             */
+            dead: string;
+        };
+        /** HandStrengthRequest */
+        HandStrengthRequest: {
+            /**
+             * Hole Range
+             * @description hero range/hand (notation)
+             * @example [
+             *       "AhKh"
+             *     ]
+             */
+            hole_range: string[];
+            /**
+             * Board
+             * @default
+             * @example AhKhQh
+             */
+            board: string;
+            /**
+             * Player Count
+             * @default 2
+             */
+            player_count: number;
+            /** Sample Count */
+            sample_count?: number | null;
+            /** Seed */
+            seed?: number | null;
+        };
+        /** IcmRequest */
+        IcmRequest: {
+            /**
+             * Payouts
+             * @example [
+             *       50,
+             *       30,
+             *       20
+             *     ]
+             */
+            payouts: number[];
+            /**
+             * Chips
+             * @example [
+             *       5000,
+             *       3000,
+             *       2000
+             *     ]
+             */
+            chips: number[];
+        };
+        /** NotationParseRequest */
+        NotationParseRequest: {
+            /**
+             * Text
+             * @description a pokerkit .phh hand-history string
+             */
+            text: string;
+        };
+        /** NutAdvantageRequest */
+        NutAdvantageRequest: {
+            /**
+             * Hero
+             * @description hero range (notation)
+             * @example [
+             *       "AA",
+             *       "KK",
+             *       "AKs"
+             *     ]
+             */
+            hero: string[];
+            /**
+             * Villain
+             * @description villain range (notation)
+             * @example [
+             *       "QQ",
+             *       "JJ",
+             *       "AQs"
+             *     ]
+             */
+            villain: string[];
+            /**
+             * Board
+             * @example AsKsQs
+             */
+            board: string;
+            /** Hand Type */
+            hand_type?: string | null;
+        };
+        /** RangeExpandRequest */
+        RangeExpandRequest: {
+            /**
+             * Notation
+             * @description range notation tokens
+             * @example [
+             *       "AA",
+             *       "KQs",
+             *       "QQ+"
+             *     ]
+             */
+            notation: string[];
+        };
+        /** ReplayRequest */
+        ReplayRequest: {
+            /**
+             * Text
+             * @description a .phh string; OR supply the config+actions fields below
+             */
+            text?: string | null;
+            /** Variant */
+            variant?: string | null;
+            /** Starting Stacks */
+            starting_stacks?: number[] | null;
+            /** Antes */
+            antes?: number[] | null;
+            /** Blinds Or Straddles */
+            blinds_or_straddles?: number[] | null;
+            /** Bring In */
+            bring_in?: number | null;
+            /** Small Bet */
+            small_bet?: number | null;
+            /** Big Bet */
+            big_bet?: number | null;
+            /** Min Bet */
+            min_bet?: number | null;
+            /**
+             * Ante Trimming Status
+             * @default false
+             */
+            ante_trimming_status: boolean;
+            /** Automations */
+            automations?: string[] | null;
+            /** Actions */
+            actions?: string[];
+            /**
+             * Index
+             * @description return only the snapshot at this step index
+             */
+            index?: number | null;
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
+        };
+        /** ValueRangeRequest */
+        ValueRangeRequest: {
+            /**
+             * Board
+             * @example AsKsQs
+             */
+            board: string;
+            /**
+             * Aggression
+             * @default SINGLE_BET
+             * @example NO_BET
+             * @example SINGLE_BET
+             * @example RAISED
+             */
+            aggression: string;
+            /**
+             * Floor
+             * @description optional category floor, e.g. 'TWO_PAIR' (overrides aggression default)
+             */
+            floor?: string | null;
+            /** Hand Type */
+            hand_type?: string | null;
+            /**
+             * Dead
+             * @default
+             */
+            dead: string;
+        };
     };
     responses: {
         /** @description invalid input or missing field */
@@ -775,6 +1768,10 @@ export interface operations {
                      * @enum {string}
                      */
                     preflop_version?: "6max" | "6max_RC_100bb_200NL" | "6max_RC_100bb_100NL" | "6max_RC_40bb";
+                    /** @description optional; when true, include the offline immutable Flop-batch pruning manifest guarantee. Omit to preserve the existing response shape. */
+                    include_flop_pruning_guarantees?: boolean;
+                    /** @description optional Flop dataset version for the guarantee lookup; there is no flop_context. */
+                    flop_version?: string;
                     positions: {
                         /** @example BTN */
                         hero?: string;
@@ -824,6 +1821,32 @@ export interface operations {
                                 call?: number;
                                 raise?: number;
                             };
+                        };
+                        /** @description Present only when include_flop_pruning_guarantees was requested. Missing data must not be used to infer a removal list. */
+                        flop_pruning_guarantees?: {
+                            /** @enum {string} */
+                            status?: "complete" | "incomplete_coverage" | "awaiting_terminal_preflop_action";
+                            /** @enum {string} */
+                            basis?: "served_artifacts";
+                            flop_version?: string;
+                            manifest_version?: string;
+                            continuation?: {
+                                action?: string;
+                                scenario?: {
+                                    /** @enum {string} */
+                                    preflop_type?: "SRP";
+                                    raiser?: string;
+                                    caller?: string;
+                                };
+                                canonical_board_count?: number;
+                                ranges?: {
+                                    [key: string]: {
+                                        source_action?: string;
+                                        position?: string;
+                                        always_removed?: string[];
+                                    };
+                                };
+                            } | null;
                         };
                         quota?: {
                             used?: number;
@@ -953,6 +1976,25 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NoSolution"];
+            /** @description hole_cards were removed from this flop tree's effective range; terminal, do not retry */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": "hand_not_in_effective_range",
+                     *       "message": "hole_cards were removed from this flop tree's effective range"
+                     *     }
+                     */
+                    "application/json": {
+                        /** @enum {string} */
+                        error: "hand_not_in_effective_range";
+                        message: string;
+                    };
+                };
+            };
         };
     };
     solverSchedule: {
@@ -971,7 +2013,32 @@ export interface operations {
                  *       "ip_range": "JJ,TT,AQs,KQs",
                  *       "pot": 20,
                  *       "effective_stack": 90,
-                 *       "hero": "OOP"
+                 *       "hero": "OOP",
+                 *       "bet_sizes": {
+                 *         "turn": [
+                 *           67
+                 *         ],
+                 *         "river": [
+                 *           75
+                 *         ]
+                 *       },
+                 *       "raise_sizes": {
+                 *         "turn": [
+                 *           80
+                 *         ],
+                 *         "river": [
+                 *           125
+                 *         ]
+                 *       },
+                 *       "donk_sizes": {
+                 *         "turn": [
+                 *           55
+                 *         ],
+                 *         "river": [
+                 *           90
+                 *         ]
+                 *       },
+                 *       "raise_limit": 3
                  *     }
                  */
                 "application/json": components["schemas"]["SolverScheduleRequest"];
@@ -1082,6 +2149,47 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             503: components["responses"]["UpstreamUnavailable"];
+        };
+    };
+    solverRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "solve": "eyJ0Ijoic2x2X3h4eXoi...(handle from /v1/gto/solver)"
+                 *     }
+                 */
+                "application/json": {
+                    /** @description handle from /v1/gto/solver */
+                    solve: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "released": true
+                     *     }
+                     */
+                    "application/json": {
+                        /** @description true if a live port claim was dropped; false if the solve had already expired (no-op) */
+                        released?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
     rangeConvert: {
@@ -1313,6 +2421,898 @@ export interface operations {
                 };
             };
             502: components["responses"]["Upstream"];
+        };
+    };
+    health_health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    texture_v1_pokerkit_texture_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-api-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BoardRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    nuts_v1_pokerkit_nuts_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-api-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BoardRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    category_combos_v1_pokerkit_category_combos_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-api-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BoardRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    board_report_v1_pokerkit_board_report_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-api-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BoardRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hand_tier_v1_pokerkit_hand_tier_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-api-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HandRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    draws_v1_pokerkit_draws_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-api-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HandRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    outs_v1_pokerkit_outs_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-api-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HandRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    blockers_v1_pokerkit_blockers_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-api-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HandRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hand_report_v1_pokerkit_hand_report_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-api-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HandRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    range_expand_v1_pokerkit_range_expand_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-api-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RangeExpandRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    range_value_v1_pokerkit_range_value_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-api-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ValueRangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    range_nut_advantage_v1_pokerkit_range_nut_advantage_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-api-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NutAdvantageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cards_normalize_v1_pokerkit_cards_normalize_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-api-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    eval_hand_v1_pokerkit_eval_hand_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-api-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvalHandRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    eval_compare_v1_pokerkit_eval_compare_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-api-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvalCompareRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    equity_v1_pokerkit_equity_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-api-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EquityRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hand_strength_v1_pokerkit_hand_strength_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-api-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HandStrengthRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    icm_v1_pokerkit_icm_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-api-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IcmRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    range_equity_advantage_v1_pokerkit_range_equity_advantage_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-api-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EquityAdvantageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    notation_parse_v1_pokerkit_notation_parse_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-api-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotationParseRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    games_state_v1_pokerkit_games_state_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-api-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GameStateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    games_step_v1_pokerkit_games_step_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-api-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GameStepRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    notation_replay_v1_pokerkit_notation_replay_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-api-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplayRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    combined_openapi_v1_pokerkit_combined_openapi_json_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    meta_v1_pokerkit_meta_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
 }
