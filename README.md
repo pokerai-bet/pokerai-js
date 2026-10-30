@@ -2,11 +2,11 @@
 
 Official TypeScript/JavaScript client for the **[Pokerai API](https://pokerai.bet)** — solver-grade
 GTO strategy for 6-max No-Limit Hold'em, over HTTP. Paths, request bodies, and responses are all
-**fully typed** — the types are **auto-generated from the [OpenAPI spec](https://pokerai.bet/openapi.yaml)**
+**fully typed** — the types are **auto-generated from the [OpenAPI spec](https://pokerai.bet/openapi.en.json)**
 (openapi-typescript) and driven by a tiny type-safe fetch runtime (openapi-fetch), so it always
 tracks the live API.
 
-Get a free API key at **https://pokerai.bet/login**. Docs: https://pokerai.bet/docs.en
+Get a free API key at **https://pokerai.bet/login**. Docs: https://pokerai.bet/docs
 
 ```bash
 npm install @pokerai/client
@@ -51,5 +51,19 @@ Endpoints: `preflop`, `preflop/range`, `preflop/versions`, `flop/tree`, `flop/no
 ## Prefer named tools for an LLM agent?
 
 See **[@pokerai/mcp](https://www.npmjs.com/package/@pokerai/mcp)** — the same API as MCP tools.
+
+## About Pokerai API
+
+Pokerai API provides solver-grade GTO strategy and poker computation APIs for
+training products, review tools, coaches, researchers, and AI agents.
+
+Free tier: 1,000 presolved lookups + 25 real-time solves per month.
+
+Real-time assistance (RTA) at real-money tables is prohibited.
+
+- Website: https://pokerai.bet/
+- Docs: https://pokerai.bet/docs
+- API reference: https://pokerai.bet/reference
+- OpenAPI: https://pokerai.bet/openapi.en.json
 
 MIT licensed.
