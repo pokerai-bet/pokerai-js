@@ -726,6 +726,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/gto/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check GTO lookup availability (free)
+         * @description A key-gated, side-effect-free snapshot of whether one original GTO result route can find this scenario now. Send exactly one `type` (`preflop`, `flop`, or `solver`) and its matching object `request`; arrays and null are invalid. This endpoint is free: it does not consume presolved or solve quota, start a solve, load or renew a cache, or expose ranges, frequency, policy, internal addresses, artifact IDs, or tokens. Free does not mean anonymous or unlimited: the original presolve temporary-disable and account/IP access restrictions still apply.
+         *
+         *     Use the matching public `lookup_endpoint` only after `status=available`: preflop maps to `/v1/gto/preflop/range` (a spot/range lookup, with no pruning guarantee), flop maps to `/v1/gto/flop/tree` (optional `hole_cards`), and solver maps to `/v1/gto/solver` (board has 3, 4, or 5 cards). `available` includes `source`, `match`, and `lookup_endpoint`; preflop and flop also include non-empty `requested_version` and `resolved_version`, while solver has no version fields. `unavailable`, `computing`, and `unknown` return only `status`.
+         *
+         *     This is a point-in-time snapshot, not a reservation or a guarantee of a later cache hit or successful load. An unloaded persistent cache can be `available` when a matching cache passes the current checks, yet its later load can fail and the original result route can then trigger its normal billing behavior. For solver, first obtain a solve handle from `lookup_endpoint`; availability never provides tree access. The endpoint does not enumerate spots, search across types, or promise that every spot or version has a solution.
+         *
+         *     Examples (replace `$POKERAI_API_KEY` with your key):
+         *     `{"type":"preflop","request":{"table_size":"6max","positions":{"hero":"BTN"},"preflop_actions":[{"position":"SB","action":"small blind","amount":0.5},{"position":"BB","action":"big blind","amount":1}]}}`
+         *     `{"type":"flop","request":{"board":"2c2h2s","pot_type":"SRP","positions":{"hero":"UTG","raiser":"UTG","caller":"BTN"}}}`
+         *     `{"type":"solver","request":{"board":"2c2h2s9d","oop_range":"AA,KK","ip_range":"QQ,JJ","pot":20,"effective_stack":90,"hero":"OOP"}}`
+         *
+         *     Input, key, account/IP, and rate-limit failures use 400, 401, 403, and 429. Availability upstream timeouts, non-success responses, and malformed responses use 503 with `{"status":"unknown"}`. This differs from the existing 502 `auth_unavailable`, which means the Auth key-validation dependency could not be reached.
+         */
+        post: operations["gtoAvailability"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1604,6 +1635,63 @@ export interface components {
              */
             dead: string;
         };
+        AvailabilityPreflopRequest: {
+            /** @example 6max */
+            table_size: string;
+            /**
+             * @description optional; which 6max preflop chart set to use (same as /v1/gto/preflop). Omit for the default.
+             * @enum {string}
+             */
+            preflop_version?: "6max" | "6max_RC_100bb_200NL" | "6max_RC_100bb_100NL" | "6max_RC_40bb";
+            positions: {
+                /** @example BTN */
+                hero?: string;
+            };
+            /** @description full action sequence from SB/BB, same as /v1/gto/preflop */
+            preflop_actions: Record<string, never>[];
+        };
+        AvailabilityRequest: {
+            /** @enum {string} */
+            type: "preflop";
+            request: components["schemas"]["AvailabilityPreflopRequest"];
+        } | {
+            /** @enum {string} */
+            type: "flop";
+            request: components["schemas"]["FlopTreeRequest"];
+        } | {
+            /** @enum {string} */
+            type: "solver";
+            request: components["schemas"]["SolverScheduleRequest"];
+        };
+        AvailabilityStatusOnly: {
+            /** @enum {string} */
+            status: "unavailable" | "computing" | "unknown";
+        };
+        AvailabilityUnknownResponse: {
+            /** @enum {string} */
+            status: "unknown";
+        };
+        AvailabilityResponse: components["schemas"]["AvailabilityStatusOnly"] | {
+            /** @enum {string} */
+            status: "available";
+            /** @enum {string} */
+            source: "presolved" | "cache";
+            /** @enum {string} */
+            match: "exact" | "fallback";
+            /** @enum {string} */
+            lookup_endpoint: "/v1/gto/preflop/range" | "/v1/gto/flop/tree";
+            requested_version: string;
+            resolved_version: string;
+        } | {
+            /** @enum {string} */
+            status: "available";
+            /** @enum {string} */
+            source: "presolved" | "cache";
+            /** @enum {string} */
+            match: "exact" | "fallback";
+            /** @enum {string} */
+            lookup_endpoint: "/v1/gto/solver";
+        };
     };
     responses: {
         /** @description invalid input or missing field */
@@ -1667,6 +1755,42 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description account or IP access is not permitted */
+        AvailabilityForbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description rate or account limit reached */
+        AvailabilityRateLimited: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Auth key-validation dependency unavailable (502 auth_unavailable) */
+        AuthUnavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description availability upstream unavailable, timed out, rejected, or malformed (503) */
+        AvailabilityUnknown: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["AvailabilityUnknownResponse"];
             };
         };
     };
@@ -3313,6 +3437,36 @@ export interface operations {
                     };
                 };
             };
+        };
+    };
+    gtoAvailability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AvailabilityRequest"];
+            };
+        };
+        responses: {
+            /** @description availability snapshot */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailabilityResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["AvailabilityForbidden"];
+            429: components["responses"]["AvailabilityRateLimited"];
+            502: components["responses"]["AuthUnavailable"];
+            503: components["responses"]["AvailabilityUnknown"];
         };
     };
 }
