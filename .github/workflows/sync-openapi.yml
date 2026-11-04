@@ -8,7 +8,7 @@ on:
       openapi_yaml_url:
         description: OpenAPI YAML URL
         required: false
-        default: https://pokerai.bet/openapi.yaml
+        default: https://pokerai.bet/openapi.en.json
       source_sha:
         description: gv-gto-auth source SHA
         required: false
@@ -35,7 +35,7 @@ jobs:
           INPUT_URL: ${{ inputs.openapi_yaml_url }}
         run: |
           set -euo pipefail
-          url="${DISPATCH_URL:-${INPUT_URL:-https://pokerai.bet/openapi.yaml}}"
+          url="${DISPATCH_URL:-${INPUT_URL:-https://pokerai.bet/openapi.en.json}}"
           curl -fsSL "$url" -o openapi.yaml
 
       - run: npm run gen
@@ -53,4 +53,4 @@ jobs:
             Automated OpenAPI sync from Pokerai API.
 
             Source repo: pokerai-bet/gv-gto-auth
-            Spec URL: https://pokerai.bet/openapi.yaml
+            Spec URL: https://pokerai.bet/openapi.en.json
