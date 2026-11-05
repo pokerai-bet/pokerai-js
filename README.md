@@ -57,7 +57,7 @@ See **[@pokerai/mcp](https://www.npmjs.com/package/@pokerai/mcp)** — the same 
 Pokerai API provides solver-grade GTO strategy and poker computation APIs for
 training products, review tools, coaches, researchers, and AI agents.
 
-Free tier: 1,000 presolved lookups + 25 real-time solves per month.
+Free tier: 10 presolved lookups + 5 real-time solves per month.
 
 Real-time assistance (RTA) at real-money tables is prohibited.
 

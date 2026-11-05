@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+README only: the About section gives the current Free tier, 10 presolved
+lookups + 5 real-time solves per month. The package now also includes the
+MIT LICENSE file. `dist/` is unchanged from 0.2.0.
+
 ## 0.2.0
 
 The types in `src/schema.ts` are regenerated from the current Pokerai OpenAPI

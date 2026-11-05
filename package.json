@@ -1,6 +1,6 @@
 {
   "name": "@pokerai/client",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Official TypeScript/JavaScript client for the Pokerai API — solver-grade GTO strategy for 6-max No-Limit Hold'em. Fully typed, auto-generated from the OpenAPI spec.",
   "keywords": ["poker", "gto", "solver", "holdem", "nlhe", "api", "pokerai", "openapi"],
   "homepage": "https://pokerai.bet",
